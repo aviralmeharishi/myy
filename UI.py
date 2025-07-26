@@ -1,7 +1,7 @@
 # THE USER INTERFACE 
 
 import streamlit as st
-
+import utilis
 
 st.set_page_config(layout="wide")
 st.title("CareerCraft - AI 🤖")
@@ -45,13 +45,43 @@ with column2:
 
 
     if st.button("Analyze My Resume", use_container_width=True):
-        if resume:
-            if jd_file or jd_img or jd_text:
-                st.success("Great! We are READY", icon="✅")
-            else:
-                st.error("please put JD", icon="🚨")
-        else:
-            st.error("Please Put Resume", icon="🚨")
+        if resume is not None:
 
-        st.info('This is a purely informational message', icon="ℹ️")
+            resume_text = ""
+            if resume.type == "application/pdf":
+                resume_text = utilis.get_pdf_text(resume)
+            else:
+                resume_text = utilis.get_docx_text(resume)
+
+
+
+            jd= ""
+            if jd_text:
+                jd = jd_text
+            elif jd_file:
+                if jd_file.type == "application/pdf":
+                    jd = utilis.get_pdf_text(jd_file)
+                else:
+                    jd = utilis.get_docx_text(jd_file)
+        elif jd_img:
+            jd = utilis.get_image_text(jd_img)
+
+
+
+        if not jd_text:
+            st.error("Please provide the Job Description.")
+        else:
+            st.success("Text Extracted Successfully! Ready for analysis.")
+
+            st.subheader("Extracted Resume Text (First 500 Chars)")
+            st.text(resume_text[:500])
+
+
+            st.subheader("Extracted Job Description Text (First 500 Chars)")
+            st.text(jd_text[:500])
+
+    else:
+        st.error("Please upload your resume first.")
+
+    st.info('This is a purely informational message', icon="ℹ️")
                                   
