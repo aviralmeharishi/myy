@@ -78,7 +78,7 @@ with column2:
 
 
             st.subheader("Extracted Job Description Text (First 500 Chars)")
-            st.text(jd_text[:500])
+            st.text(jd[:500])
 
     else:
         st.error("Please upload your resume first.")
