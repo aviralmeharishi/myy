@@ -1,67 +1,86 @@
-# THE USER INTERFACE 
+# app.py
 
 import streamlit as st
-import utils  # CORRECTED: Was 'utilis'
+import utils  # Your utility file with all the helper functions
 
+# --- Page Setup ---
 st.set_page_config(layout="wide")
 st.title("CareerCraft - AI 🤖")
-st.markdown("# **ATS Scorer 😎😎**")
-
-st.write("HERE YOU NEED TO UPLOAD YOUR RESUME(PDF OR DOC) AND THE JOB DESCRIPTION(TEXT, IMAGE, PDF, DOC) AND GET AN ELITE LEVEL ANALYSIS 😎")
+st.markdown("### **Elite ATS Scorer**")
+st.write("Upload your resume and the Job Description to get an elite-level analysis.")
 st.divider()
 
+# --- Main Columns ---
 column1, column2 = st.columns(2)
 
+# --- Column 1: Resume Upload ---
 with column1:
-    st.header("Please Upload Your Resume 📄📄")
-    resume = st.file_uploader(label="Upload Your Resume Here....", type=['pdf', "docx"], label_visibility="collapsed")
+    st.header("📄 Your Resume")
+    resume_file = st.file_uploader("Upload your Resume", type=["pdf", "docx"], label_visibility="collapsed")
 
+# --- Column 2: Job Description Input ---
 with column2:
-    st.header("Job Description 💼 ")
+    st.header("💼 Job Description")
+    # Tabs for different input methods
     jd_tab1, jd_tab2, jd_tab3 = st.tabs(['Paste Text', "Upload PDF/DOCX", "Upload Image"])
 
     with jd_tab1:
-        jd_text_input = st.text_area("Paste The Job Description", height=300)
+        jd_text_input = st.text_area("Paste the Job Description text here", height=300)
     with jd_tab2:
-        jd_file = st.file_uploader("Upload The Job Description File", type=['pdf', "docx"])
+        jd_file_input = st.file_uploader("Upload the Job Description file", type=["pdf", "docx"])
     with jd_tab3:
-        jd_img = st.file_uploader("Upload the Job Description ScreenShot", type=["png", "jpg", "jpeg"])
+        jd_image_input = st.file_uploader("Upload a screenshot of the Job Description", type=["png", "jpg", "jpeg"])
 
+# --- Analyze Button and Logic ---
 if st.button("Analyze My Resume", use_container_width=True):
-    if resume is not None:
-        # --- Resume Text Extraction ---
+    # Check if a resume has been uploaded
+    if resume_file is not None:
+        
+        # --- 1. Text Extraction ---
+        # Extract text from the uploaded resume file
         resume_text = ""
-        if resume.type == "application/pdf":
-            resume_text = utils.get_pdf_text(resume)  # CORRECTED
-        else:
-            resume_text = utils.get_docx_text(resume) # CORRECTED
+        if resume_file.type == "application/pdf":
+            resume_text = utils.get_pdf_text(resume_file)
+        elif resume_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            resume_text = utils.get_docx_text(resume_file)
 
-        # --- Job Description Text Extraction ---
-        jd = "" # Final variable to hold JD text
+        # Extract text from the job description input (any of the three tabs)
+        jd_text = ""
         if jd_text_input:
-            jd = jd_text_input
-        elif jd_file:
-            if jd_file.type == "application/pdf":
-                jd = utils.get_pdf_text(jd_file)  # CORRECTED
-            else:
-                jd = utils.get_docx_text(jd_file) # CORRECTED
-        elif jd_img:
-            jd = utils.get_image_text(jd_img) # CORRECTED
+            jd_text = jd_text_input
+        elif jd_file_input:
+            if jd_file_input.type == "application/pdf":
+                jd_text = utils.get_pdf_text(jd_file_input)
+            elif jd_file_input.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                jd_text = utils.get_docx_text(jd_file_input)
+        elif jd_image_input:
+            jd_text = utils.get_image_text(jd_image_input)
 
-        # --- Final Check and Display ---
-        if not jd: # CORRECTED: Check the final 'jd' variable
+        # Check if we have the JD text
+        if not jd_text:
             st.error("Please provide the Job Description in one of the formats.")
         else:
-            st.success("Text Extracted Successfully! Ready for analysis.")
+            # --- 2. Pre-Analysis and Parsing (Our Current Step) ---
+            st.info("Running Content Parser...")
             
-            st.subheader("Extracted Resume Text (First 500 Chars)")
-            st.text(resume_text[:500])
+            # Call the new parsing function from utils.py
+            parsed_resume_sections = utils.parse_resume_sections(resume_text)
 
-            st.subheader("Extracted Job Description Text (First 500 Chars)")
-            st.text(jd[:500]) # CORRECTED: Display the final 'jd' variable
+            # --- 3. Display Parsed Content for Verification ---
+            st.subheader("Parsed Resume Sections (for testing):")
+            
+            if 'error' in parsed_resume_sections:
+                st.error(parsed_resume_sections['error'])
+            else:
+                # Display the content of each parsed section
+                for section, content in parsed_resume_sections.items():
+                    st.markdown(f"### {section.replace('_', ' ').title()}")
+                    # Show first 500 characters of each section to keep it clean
+                    st.text(content[:500] + "...") 
+            
+            # The AI analysis part will be added here in the next step
+            # st.info("Next Step: AI Micro-Analysis on the parsed sections.")
 
     else:
+        # If no resume is uploaded
         st.error("Please upload your resume first.")
-
-    st.info('This is a purely informational message', icon="ℹ️")
-                                  
