@@ -42,7 +42,7 @@ def get_image_text(image_file):
         return f"Error reading image file: {e}"
 
 
-def parse_resume_section(resume_text):
+def parse_resume_sections(resume_text):
     patterns = {
         "Summary" : r'(?im)^\s*(summary|about me|description|objective|profile|)',
         "Experience" : r'(?im)^\s*(experience|employment history|work history|professional experience)',
