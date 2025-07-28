@@ -121,22 +121,21 @@ def analyze_resume_structure(resume_text):
 
 # utils.py
 
-# ... (keep all your other functions like get_pdf_text, etc.) ...
-
+# ... (keep all your other functions) ...
 import google.generativeai as genai
 
 def get_hybrid_analysis(resume_text, jd_text, structural_findings, language):
     """
-    Generates a RELIABLE and language-specific analysis.
+    Generates a RELIABLE and language-specific analysis with non-translatable tags.
     """
     findings_str = "\n".join([f"- {key.replace('_', ' ').title()}: {'Yes' if value else 'No'}" for key, value in structural_findings.items() if key != "structural_score"])
 
-    # --- STRICTER PROMPT ---
-    # We are now giving a much more forceful command for the language.
+    # --- UPDATED, EVEN STRICTER PROMPT ---
     input_prompt = f"""
     You are an expert ATS and a world-class career coach.
     Your MOST IMPORTANT instruction is to generate the entire response STRICTLY in the following language: **{language}**.
-    Do not use any other language. All headers, titles, and text must be in **{language}**.
+    
+    **CRITICAL RULE:** The structural tags like `[SCORE]`, `[/SCORE]`, `[SUMMARY]`, `[/SUMMARY]`, etc., are special markers for my code. You MUST include these exact English tags in your response without translating or altering them. The content between the tags should be in {language}, but the tags themselves must remain in English.
 
     **Python Structural Analysis (Baseline Facts):**
     {findings_str}
@@ -153,28 +152,29 @@ def get_hybrid_analysis(resume_text, jd_text, structural_findings, language):
     ```
     ---
     **Your Detailed Contextual Analysis (in {language}):**
-    Based on all the provided information, generate a report in Markdown format.
+    Generate a report using the EXACT format below. Remember to keep the tags in English.
 
-    ### **Elite ATS Analysis Report**
+    [SCORE]
+    Provide a final ATS score out of 100. Just the number.
+    [/SCORE]
 
-    **1. Final ATS Score & Profile Summary:**
-       - **Final ATS Score:** Provide a final score out of 100. This should be a weighted average of the Python Structural Score (30% weight) and your contextual analysis of keywords and impact (70% weight).
-       - **Coach's Summary:** Write a 2-3 line expert summary on the candidate's suitability.
+    [SUMMARY]
+    Write a 2-3 line expert summary on the candidate's suitability and key areas for improvement.
+    [/SUMMARY]
 
-    **2. Skill-Gap Analysis (Contextual):**
-       - **Analysis:** Evaluate how well the skills in the resume align with the job description.
-       - **Missing Critical Skills:** List the top 3-5 most critical skills from the JD that are missing.
+    [SKILLS]
+    Critically analyze the skills alignment. List the top 3-5 most critical skills from the JD that are missing.
+    [/SKILLS]
 
-    **3. Experience & Impact Analysis (Contextual):**
-       - **Analysis:** Scrutinize the work experience for quantifiable results.
-       - **Actionable Rewrite Suggestion:** Select one weak bullet point and provide a rewritten "strong" version.
+    [IMPACT]
+    Scrutinize the work experience section for impact. Select one weak bullet point and provide a rewritten "strong" version.
+    [/IMPACT]
 
-    **4. Final Recommendations:**
-       - Provide 2-3 concrete, high-priority action items for the user.
+    [RECOMMENDATIONS]
+    Provide 2-3 concrete, high-priority action items for the user.
+    [/RECOMMENDATIONS]
     """
     
-    # --- LOCKING THE TEMPERATURE ---
-    # We are setting temperature to a low value to ensure consistent, non-random outputs.
     generation_config = {
         "temperature": 0.2,
     }
