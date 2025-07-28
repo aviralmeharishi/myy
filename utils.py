@@ -120,24 +120,73 @@ def analyze_resume_structure(resume_text):
 
 
 
+# utils.py
+
+# ... (keep all your other functions like get_pdf_text, etc.) ...
+
+import google.generativeai as genai
 
 def get_hybrid_analysis(resume_text, jd_text, structural_findings, language):
     """
-    Generates a structured analysis with special tags for parsing.
+    Generates a RELIABLE and language-specific analysis.
     """
     findings_str = "\n".join([f"- {key.replace('_', ' ').title()}: {'Yes' if value else 'No'}" for key, value in structural_findings.items() if key != "structural_score"])
 
+    # --- STRICTER PROMPT ---
+    # We are now giving a much more forceful command for the language.
     input_prompt = f"""
     You are an expert ATS and a world-class career coach.
-    Your task is to provide an elite-level analysis of a resume against a job description.
-    I have already performed a basic structural analysis using Python. Use these findings as a baseline.
-    The final report MUST be in the following language: **{language}**.
+    Your MOST IMPORTANT instruction is to generate the entire response STRICTLY in the following language: **{language}**.
+    Do not use any other language. All headers, titles, and text must be in **{language}**.
 
-    **Python Structural Analysis:**
+    **Python Structural Analysis (Baseline Facts):**
     {findings_str}
-    - Structural Score: {structural_findings['structural_score']}/100
+    - Structural Score (out of 100): {structural_findings['structural_score']}
 
     **Resume Text:**
+    ```
+    {resume_text}
+    ```
+
+    **Job Description Text:**
+    ```
+    {jd_text}
+    ```
+    ---
+    **Your Detailed Contextual Analysis (in {language}):**
+    Based on all the provided information, generate a report in Markdown format.
+
+    ### **Elite ATS Analysis Report**
+
+    **1. Final ATS Score & Profile Summary:**
+       - **Final ATS Score:** Provide a final score out of 100. This should be a weighted average of the Python Structural Score (30% weight) and your contextual analysis of keywords and impact (70% weight).
+       - **Coach's Summary:** Write a 2-3 line expert summary on the candidate's suitability.
+
+    **2. Skill-Gap Analysis (Contextual):**
+       - **Analysis:** Evaluate how well the skills in the resume align with the job description.
+       - **Missing Critical Skills:** List the top 3-5 most critical skills from the JD that are missing.
+
+    **3. Experience & Impact Analysis (Contextual):**
+       - **Analysis:** Scrutinize the work experience for quantifiable results.
+       - **Actionable Rewrite Suggestion:** Select one weak bullet point and provide a rewritten "strong" version.
+
+    **4. Final Recommendations:**
+       - Provide 2-3 concrete, high-priority action items for the user.
+    """
+    
+    # --- LOCKING THE TEMPERATURE ---
+    # We are setting temperature to a low value to ensure consistent, non-random outputs.
+    generation_config = {
+        "temperature": 0.2,
+    }
+    
+    model = genai.GenerativeModel(
+        model_name='gemini-1.5-flash-latest',
+        generation_config=generation_config
+    )
+    
+    response = model.generate_content(input_prompt)
+    return response.text
     ```
     {resume_text}
     ```
