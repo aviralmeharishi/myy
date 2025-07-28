@@ -3,6 +3,7 @@ import docx
 import pytesseract
 from PIL import Image
 import re
+import google.generativeai as genai
 
 
 
@@ -117,22 +118,24 @@ def analyze_resume_structure(resume_text):
 
 
 
-import google.generativeai as genai
 
-def get_hybrid_analysis(resume_text, jd_text, structural_findings):
+
+
+def get_hybrid_analysis(resume_text, jd_text, structural_findings, language):
     """
-    Generates a comprehensive analysis using Python findings to guide the AI.
+    Generates a structured analysis with special tags for parsing.
     """
-    # Convert Python's boolean findings into a readable string for the AI
     findings_str = "\n".join([f"- {key.replace('_', ' ').title()}: {'Yes' if value else 'No'}" for key, value in structural_findings.items() if key != "structural_score"])
 
     input_prompt = f"""
-    You are an expert ATS and a world-class career coach. Your task is to provide an elite-level analysis of a resume against a job description.
-    I have already performed a basic structural analysis using Python. Use these findings as a baseline for your contextual analysis.
+    You are an expert ATS and a world-class career coach.
+    Your task is to provide an elite-level analysis of a resume against a job description.
+    I have already performed a basic structural analysis using Python. Use these findings as a baseline.
+    The final report MUST be in the following language: **{language}**.
 
-    **Python Structural Analysis (Baseline Facts):**
+    **Python Structural Analysis:**
     {findings_str}
-    - Structural Score (out of 100): {structural_findings['structural_score']}
+    - Structural Score: {structural_findings['structural_score']}/100
 
     **Resume Text:**
     ```
@@ -144,25 +147,28 @@ def get_hybrid_analysis(resume_text, jd_text, structural_findings):
     {jd_text}
     ```
     ---
-    **Your Detailed Contextual Analysis:**
-    Based on all the provided information, generate a report in Markdown format.
+    **Your Detailed Analysis:**
+    Generate a report using the EXACT following format with the specified tags. Do not add any text outside of these tags.
 
-    ### **Elite ATS Analysis Report**
+    [SCORE]
+    Provide a final ATS score out of 100. Just the number.
+    [/SCORE]
 
-    **1. Final ATS Score & Profile Summary:**
-       - **Final ATS Score:** Provide a final score out of 100. This should be a weighted average of the Python Structural Score (30% weight) and your contextual analysis of keywords and impact (70% weight).
-       - **Coach's Summary:** Write a 2-3 line expert summary on the candidate's suitability and key areas for improvement.
+    [SUMMARY]
+    Write a 2-3 line expert summary on the candidate's suitability and key areas for improvement.
+    [/SUMMARY]
 
-    **2. Skill-Gap Analysis (Contextual):**
-       - **Analysis:** Evaluate how well the skills in the resume align with the job description beyond simple keyword matching.
-       - **Missing Critical Skills:** List the top 3-5 most critical skills from the JD that are missing.
+    [SKILLS]
+    Critically analyze the skills alignment. List the top 3-5 most critical skills from the JD that are missing.
+    [/SKILLS]
 
-    **3. Experience & Impact Analysis (Contextual):**
-       - **Analysis:** Scrutinize the work experience. Does it demonstrate impact with quantifiable results (numbers, data)?
-       - **Actionable Rewrite Suggestion:** Select one weak bullet point and provide a rewritten "strong" version.
+    [IMPACT]
+    Scrutinize the work experience section for impact. Select one weak bullet point and provide a rewritten "strong" version.
+    [/IMPACT]
 
-    **4. Final Recommendations:**
-       - Provide 2-3 concrete, high-priority action items for the user.
+    [RECOMMENDATIONS]
+    Provide 2-3 concrete, high-priority action items for the user.
+    [/RECOMMENDATIONS]
     """
     
     model = genai.GenerativeModel('gemini-1.5-flash-latest')
