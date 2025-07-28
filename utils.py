@@ -119,7 +119,6 @@ def analyze_resume_structure(resume_text):
 
 
 
-
 # utils.py
 
 # ... (keep all your other functions like get_pdf_text, etc.) ...
@@ -185,41 +184,5 @@ def get_hybrid_analysis(resume_text, jd_text, structural_findings, language):
         generation_config=generation_config
     )
     
-    response = model.generate_content(input_prompt)
-    return response.text
-    ```
-    {resume_text}
-    ```
-
-    **Job Description Text:**
-    ```
-    {jd_text}
-    ```
-    ---
-    **Your Detailed Analysis:**
-    Generate a report using the EXACT following format with the specified tags. Do not add any text outside of these tags.
-
-    [SCORE]
-    Provide a final ATS score out of 100. Just the number.
-    [/SCORE]
-
-    [SUMMARY]
-    Write a 2-3 line expert summary on the candidate's suitability and key areas for improvement.
-    [/SUMMARY]
-
-    [SKILLS]
-    Critically analyze the skills alignment. List the top 3-5 most critical skills from the JD that are missing.
-    [/SKILLS]
-
-    [IMPACT]
-    Scrutinize the work experience section for impact. Select one weak bullet point and provide a rewritten "strong" version.
-    [/IMPACT]
-
-    [RECOMMENDATIONS]
-    Provide 2-3 concrete, high-priority action items for the user.
-    [/RECOMMENDATIONS]
-    """
-    
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
     response = model.generate_content(input_prompt)
     return response.text
