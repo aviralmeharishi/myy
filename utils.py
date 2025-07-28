@@ -165,6 +165,6 @@ def get_hybrid_analysis(resume_text, jd_text, structural_findings):
        - Provide 2-3 concrete, high-priority action items for the user.
     """
     
-    model = genai.GenerativeModel('gemini-1.5-pro-latest')
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
     response = model.generate_content(input_prompt)
     return response.text
