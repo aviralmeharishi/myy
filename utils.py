@@ -2,7 +2,7 @@ import PyPDF2
 import docx
 import pytesseract
 from PIL import Image
-
+import re
 
 
 
