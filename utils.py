@@ -40,3 +40,31 @@ def get_image_text(image_file):
         return text
     except Exception as e:
         return f"Error reading image file: {e}"
+
+
+def parse_resume_section(resume_text):
+    patterns = {
+        "Summary" : r'(?im)^\s*(summary|about me|description|objective|profile|)',
+        "Experience" : r'(?im)^\s*(experience|employment history|work history|professional experience)',
+        'education': r'(?im)^\s*(education|academic qualifications|academics)',
+        'skills': r'(?im)^\s*(skills|technical skills|proficiencies|technologies)',
+        'projects': r'(?im)^\s*(projects|personal projects|academic projects)'
+    }
+    matches = []
+    for section_name, pattern in patterns.items():
+        for match in re.finditer(pattern, resume_text):
+            matches.append((section_name, match.start()))
+    if not matches:
+        return {'error': "Could not parse resume sections. Please use standard headers like 'Summary', 'Experience', etc."}
+        matches.sort(key=lambda x: x[1])
+        
+    parsed_sections = {}
+    for i in range(len(matches)):
+        section_name, start_index = matches[i]
+        if i + 1 < len(matches):
+            end_index = matches[i+1][1]
+        else:
+            end_index = len(resume_text)
+        section_content = resume_text[start_index:end_index].strip()
+        parsed_sections[section_name] = section_content
+    return parsed_sections
