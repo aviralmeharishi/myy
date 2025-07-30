@@ -1,188 +1,105 @@
+import re
 import PyPDF2
 import docx
-import pytesseract
 from PIL import Image
-import re
+import pytesseract
+import spacy
 import google.generativeai as genai
 
+# Load the spaCy model once
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    nlp = None
 
-
-def get_pdf_text(pdf_file):
+# --- 1. Text Extraction Functions ---
+def get_text(file):
+    """Extracts text from PDF, DOCX, or Image files."""
     try:
-        pdf_reader = PyPDF2.PdfReader(pdf_file)
-        text = ""
-        for page in pdf_reader.pages:
-            text += page.extract_text()
-        return text
-    except Exception as e:
-        return f'Error In Reading FIle as {e}'
-    
+        if file.type == "application/pdf":
+            reader = PyPDF2.PdfReader(file)
+            return "".join(page.extract_text() or "" for page in reader.pages)
+        elif "document" in file.type:
+            doc = docx.Document(file)
+            return "\n".join(para.text for para in doc.paragraphs)
+        elif "image" in file.type:
+            image = Image.open(file)
+            return pytesseract.image_to_string(image)
+    except Exception:
+        return None
 
-
-
-def get_docx_text(docx_file):
-    try:
-        doc = docx.Document(docx_file)
-        text = ""
-        for para in doc.paragraphs:
-            text += para.text + "\n"
-        return text
-    except Exception as e:
-        return f"Error reading DOCX file: {e}"
-    
-
-
-
-def get_image_text(image_file):
-    try:
-        image = Image.open(image_file)
-        # Using pytesseract to do OCR on the image
-        text = pytesseract.image_to_string(image)
-        return text
-    except Exception as e:
-        return f"Error reading image file: {e}"
-
-def parse_resume_sections(resume_text):
-    """
-    Detects and parses the content of key resume sections with corrections.
-    """
-    patterns = {
-        'summary': r'(?im)^\s*(summary|objective|profile|about me|professional summary)',
-        'experience': r'(?im)^\s*(experience|employment history|work history|professional experience|career history)',
-        'education': r'(?im)^\s*(education|academic qualifications|academics|educational background)',
-        'skills': r'(?im)^\s*(skills|technical skills|proficiencies|technologies|key skills|core competencies)',
-        'projects': r'(?im)^\s*(projects|personal projects|academic projects|technical projects|portfolio)'
-    }
-    
-    matches = []
-    for section_name, pattern in patterns.items():
-        for match in re.finditer(pattern, resume_text):
-            matches.append((section_name, match.start()))
-
-    if not matches:
-        return {'error': "Could not parse resume sections. Please use standard headers."}
-
-    # This part was incorrectly indented in your code
-    matches.sort(key=lambda x: x[1])
-
-    parsed_sections = {}
-    for i in range(len(matches)):
-        section_name, start_index = matches[i]
-        
-        end_index = len(resume_text)
-        if i + 1 < len(matches):
-            end_index = matches[i+1][1]
-        
-        content = resume_text[start_index:end_index].strip()
-        
-        # Remove the header itself from the content
-        header_match = re.search(patterns[section_name], content, re.IGNORECASE | re.MULTILINE)
-        if header_match:
-            content = content[header_match.end():].strip()
-            
-        parsed_sections[section_name] = content
-
-    return parsed_sections
-
-
-
-
-
-
-
-
+# --- 2. Python-Based Analysis Functions ---
 def analyze_resume_structure(resume_text):
-    """
-    Analyzes the resume for structural elements using Python rules.
-    Returns a dictionary of findings and a score.
-    """
+    """Analyzes the resume for key structural elements using Python rules."""
     findings = {
-        "contact_info_present": bool(re.search(r'(?i)phone|email|linkedin|github|portfolio', resume_text)),
-        "summary_section_found": bool(re.search(r'(?im)^\s*(summary|objective|profile)', resume_text)),
-        "experience_section_found": bool(re.search(r'(?im)^\s*(experience|employment history)', resume_text)),
-        "education_section_found": bool(re.search(r'(?im)^\s*(education|academic)', resume_text)),
-        "skills_section_found": bool(re.search(r'(?im)^\s*(skills|technical skills)', resume_text)),
+        "contact_info_present": bool(re.search(r'(?i)phone|email|linkedin|github', resume_text)),
+        "summary_found": bool(re.search(r'(?im)^\s*(summary|objective|profile)', resume_text)),
+        "experience_found": bool(re.search(r'(?im)^\s*(experience|employment history)', resume_text)),
+        "education_found": bool(re.search(r'(?im)^\s*(education|academic)', resume_text)),
+        "skills_found": bool(re.search(r'(?im)^\s*(skills|technical skills)', resume_text)),
     }
-    
-    # Calculate a simple structural score based on the presence of key sections
-    score = sum(findings.values()) * 20  # Each finding is worth 20 points
+    score = sum(findings.values()) * 20
     findings["structural_score"] = score
-    
     return findings
 
+def extract_entities(text, labels=["ORG", "PERSON"]):
+    """Extracts named entities like company names (ORG) from text using spaCy."""
+    if not nlp: return []
+    doc = nlp(text)
+    return list(set([ent.text for ent in doc.ents if ent.label_ in labels]))
 
+# --- 3. AI-Based Micro-Analysis Functions ---
+def check_details_mismatch(jd_text, resume_companies):
+    """AI function to check if the resume is tailored for the job (company name)."""
+    if not resume_companies: return "Not Applicable"
+    prompt = f"""
+    You are a strict HR compliance officer. Compare the target company from the Job Description with the list of companies mentioned in the resume's experience section.
 
+    Job Description: "{jd_text[:500]}..." 
+    Companies listed in Resume: {resume_companies}
 
-
-
-
-
-
-
-# utils.py
-
-# ... (keep all your other functions) ...
-import google.generativeai as genai
-
-def get_hybrid_analysis(resume_text, jd_text, structural_findings, language):
+    Is there a clear mismatch suggesting the resume was not tailored for this specific company? For example, if the JD is for 'Google' and the resume summary says 'seeking a role at Microsoft'. Answer ONLY with 'Yes', 'No', or 'Not Applicable'.
     """
-    Generates a RELIABLE and language-specific analysis with non-translatable tags.
-    """
-    findings_str = "\n".join([f"- {key.replace('_', ' ').title()}: {'Yes' if value else 'No'}" for key, value in structural_findings.items() if key != "structural_score"])
+    model = genai.GenerativeModel('gemini-1.5-flash-latest', generation_config={"temperature": 0.0})
+    response = model.generate_content(prompt)
+    return response.text.strip()
 
-    # --- UPDATED, EVEN STRICTER PROMPT ---
-    input_prompt = f"""
-    You are an expert ATS and a world-class career coach.
-    Your MOST IMPORTANT instruction is to generate the entire response STRICTLY in the following language: **{language}**.
-    
-    **CRITICAL RULE:** The structural tags like `[SCORE]`, `[/SCORE]`, `[SUMMARY]`, `[/SUMMARY]`, etc., are special markers for my code. You MUST include these exact English tags in your response without translating or altering them. The content between the tags should be in {language}, but the tags themselves must remain in English.
+def get_qualitative_analysis(resume_text, jd_text, language):
+    """Generates qualitative analysis and sub-scores for different sections."""
+    prompt = f"""
+    You are an expert career coach. Analyze the resume against the job description.
+    CRITICAL RULE: The entire response MUST be in the language: **{language}**.
+    The tags like [IMPACT_SCORE] MUST remain in English.
 
-    **Python Structural Analysis (Baseline Facts):**
-    {findings_str}
-    - Structural Score (out of 100): {structural_findings['structural_score']}
-
-    **Resume Text:**
-    ```
-    {resume_text}
-    ```
-
-    **Job Description Text:**
-    ```
-    {jd_text}
-    ```
+    Resume: "{resume_text}"
+    JD: "{jd_text}"
     ---
-    **Your Detailed Contextual Analysis (in {language}):**
-    Generate a report using the EXACT format below. Remember to keep the tags in English.
+    Provide your analysis using the EXACT format below:
 
-    [SCORE]
-    Provide a final ATS score out of 100. Just the number.
-    [/SCORE]
+    [IMPACT_SCORE]
+    On a scale of 1-10, how impactful is the work experience section? Just the number.
+    [/IMPACT_SCORE]
+
+    [SKILLS_SCORE]
+    On a scale of 1-10, how well do the skills align with the JD? Just the number.
+    [/SKILLS_SCORE]
 
     [SUMMARY]
-    Write a 2-3 line expert summary on the candidate's suitability and key areas for improvement.
+    Write a 2-3 line expert summary.
     [/SUMMARY]
 
-    [SKILLS]
-    Critically analyze the skills alignment. List the top 3-5 most critical skills from the JD that are missing.
-    [/SKILLS]
+    [SKILLS_ANALYSIS]
+    List the top 3-5 critical skills from the JD that are missing.
+    [/SKILLS_ANALYSIS]
 
-    [IMPACT]
-    Scrutinize the work experience section for impact. Select one weak bullet point and provide a rewritten "strong" version.
-    [/IMPACT]
+    [IMPACT_ANALYSIS]
+    Select one weak bullet point and provide a rewritten "strong" version.
+    [/IMPACT_ANALYSIS]
 
     [RECOMMENDATIONS]
-    Provide 2-3 concrete, high-priority action items for the user.
+    Provide 2-3 concrete, high-priority action items.
     [/RECOMMENDATIONS]
     """
-    
-    generation_config = {
-        "temperature": 0.2,
-    }
-    
-    model = genai.GenerativeModel(
-        model_name='gemini-1.5-flash-latest',
-        generation_config=generation_config
-    )
-    
-    response = model.generate_content(input_prompt)
+    model = genai.GenerativeModel('gemini-1.5-flash-latest', generation_config={"temperature": 0.2})
+    response = model.generate_content(prompt)
     return response.text
