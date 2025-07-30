@@ -42,39 +42,32 @@ def analyze_resume_structure(resume_text):
     findings["structural_score"] = score
     return findings
 
-def extract_entities(text, labels=["ORG", "PERSON"]):
+def extract_entities(text, labels=["ORG"]):
     """Extracts named entities like company names (ORG) from text using spaCy."""
     if not nlp: return []
     doc = nlp(text)
     return list(set([ent.text for ent in doc.ents if ent.label_ in labels]))
 
-# --- 3. AI-Based Micro-Analysis Functions ---
-def check_details_mismatch(jd_text, resume_companies):
-    """AI function to check if the resume is tailored for the job (company name)."""
-    if not resume_companies: return "Not Applicable"
+# --- 3. NEW: Single, Optimized AI Analysis Function ---
+def get_final_analysis(resume_text, jd_text, resume_companies, language):
+    """Generates the complete analysis in a single, optimized API call."""
     prompt = f"""
-    You are a strict HR compliance officer. Compare the target company from the Job Description with the list of companies mentioned in the resume's experience section.
+    You are an expert ATS and a world-class career coach. Perform a two-part analysis.
+    CRITICAL RULE: The entire response MUST be in the language: **{language}**.
+    The tags like [MISMATCH], [IMPACT_SCORE], etc., MUST remain in English.
 
+    **Part 1: Strict Mismatch Check**
+    Compare the target company from the Job Description with the list of companies mentioned in the resume.
     Job Description: "{jd_text[:500]}..." 
     Companies listed in Resume: {resume_companies}
+    Is there a clear mismatch? For example, if the JD is for 'Google' and the resume summary says 'seeking a role at Microsoft'.
 
-    Is there a clear mismatch suggesting the resume was not tailored for this specific company? For example, if the JD is for 'Google' and the resume summary says 'seeking a role at Microsoft'. Answer ONLY with 'Yes', 'No', or 'Not Applicable'.
-    """
-    model = genai.GenerativeModel('gemini-1.5-flash-latest', generation_config={"temperature": 0.0})
-    response = model.generate_content(prompt)
-    return response.text.strip()
+    [MISMATCH]
+    Answer ONLY with 'Yes', 'No', or 'Not Applicable'.
+    [/MISMATCH]
 
-def get_qualitative_analysis(resume_text, jd_text, language):
-    """Generates qualitative analysis and sub-scores for different sections."""
-    prompt = f"""
-    You are an expert career coach. Analyze the resume against the job description.
-    CRITICAL RULE: The entire response MUST be in the language: **{language}**.
-    The tags like [IMPACT_SCORE] MUST remain in English.
-
-    Resume: "{resume_text}"
-    JD: "{jd_text}"
-    ---
-    Provide your analysis using the EXACT format below:
+    **Part 2: Qualitative Analysis**
+    Now, provide a detailed analysis of the resume against the JD.
 
     [IMPACT_SCORE]
     On a scale of 1-10, how impactful is the work experience section? Just the number.
